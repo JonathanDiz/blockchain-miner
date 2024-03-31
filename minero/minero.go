@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"sync"
 )
 
 // Bloque representa un bloque de la cadena de bloques
@@ -17,31 +16,25 @@ type Bloque struct {
 	Nonce     int
 }
 
-// MinarGrupoBloques mina un grupo de bloques al mismo tiempo
-func MinarGrupoBloques(c CadenaBloques, grupo []Bloque, dificultad int) {
-	var wg sync.WaitGroup
-	cola := make(chan Bloque, len(grupo))
-
-	for _, bloque := range grupo {
-		wg.Add(1)
-		go func(b Bloque) {
-			defer wg.Done()
-			MinarBloque(&b, dificultad)
-			cola <- b
-		}(bloque)
-	}
-
-	wg.Wait()
-	close(cola)
-
-	for bloque := range cola {
-		c.AgregarBloque(bloque)
+// MinarBloque mina un bloque hasta encontrar un hash válido con la dificultad especificada
+func MinarBloque(b *Bloque, dificultad int) {
+	for {
+		b.CalcularHash()
+		if verificarHash(b.Hash, dificultad) {
+			break
+		}
+		b.Nonce++
 	}
 }
 
-// CadenaBloques representa la cadena de bloques
-type CadenaBloques struct {
-	Bloques []Bloque
+// verificarHash verifica si el hash cumple con la dificultad especificada
+func verificarHash(hash string, dificultad int) bool {
+	for i := 0; i < dificultad; i++ {
+		if hash[i] != '0' {
+			return false
+		}
+	}
+	return true
 }
 
 // CalcularHash calcula el hash SHA256 de un bloque
@@ -49,10 +42,7 @@ func (b *Bloque) CalcularHash() {
 	registro := fmt.Sprintf("%d%s%s%d", b.Index, b.Timestamp, b.Data, b.Nonce)
 	hash := sha256.New()
 	hash.Write([]byte(registro))
-	hashBytes := hash.Sum(nil)
-	doubleHash := sha256.New()
-	doubleHash.Write(hashBytes)
-	b.Hash = hex.EncodeToString(doubleHash.Sum(nil))
+	b.Hash = hex.EncodeToString(hash.Sum(nil))
 }
 
 // AgregarBloque agrega un nuevo bloque a la cadena de bloques
@@ -69,15 +59,9 @@ func (c *CadenaBloques) ObtenerUltimoBloque() *Bloque {
 	return &c.Bloques[len(c.Bloques)-1]
 }
 
-// MinarBloque mina un bloque hasta encontrar un hash válido con la dificultad especificada
-func MinarBloque(b *Bloque, dificultad int) {
-	for {
-		b.CalcularHash()
-		if b.Hash[:dificultad] == "5"[:dificultad] { // Ajusta el patrón para la dificultad
-			break
-		}
-		b.Nonce++
-	}
+// CadenaBloques representa la cadena de bloques
+type CadenaBloques struct {
+	Bloques []Bloque
 }
 
 // Minería representa el proceso de minería
