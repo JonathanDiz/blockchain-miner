@@ -13,15 +13,12 @@ var pool = sync.Pool{
 	},
 }
 
-func liberarDatos(datos *[]byte) {
-	if datos != nil && len(*datos) <= 1024 {
-		// Si los datos son menores o iguales a 1024 bytes, liberarlos
-		*datos = (*datos)[:0]
-		pool.Put(datos)
-	}
-}
-
 func minarBloque(cadena *minero.CadenaBloques, bloque *minero.Bloque, dificultad int) {
+	var datos []byte
+	defer func() {
+		pool.Put(&datos)
+	}()
+
 	for {
 		fmt.Printf("Minando bloque %d...\n", bloque.Index)
 		minero.MinarBloque(bloque, dificultad) // Llama a la función MinarBloque del paquete minero
