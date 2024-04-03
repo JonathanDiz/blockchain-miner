@@ -13,15 +13,6 @@ var pool = sync.Pool{
 	},
 }
 
-func obtenerDatos() []byte {
-	datos := pool.Get()
-	if datos == nil {
-		// Si no hay datos disponibles en el pool, crear nuevos datos
-		return make([]byte, 1024)
-	}
-	return datos.([]byte)
-}
-
 func liberarDatos(datos *[]byte) {
 	if datos != nil && len(*datos) <= 1024 {
 		// Si los datos son menores o iguales a 1024 bytes, liberarlos
@@ -30,16 +21,26 @@ func liberarDatos(datos *[]byte) {
 	}
 }
 
-func minarGrupo(cadena *minero.CadenaBloques, grupoBloques []minero.Bloque, wg *sync.WaitGroup, dificultad int) {
-	defer wg.Done()
-	for i, bloque := range grupoBloques {
-		fmt.Printf("Minando bloque %d del grupo...\n", i)
-		minero.MinarBloque(&bloque, dificultad) // Llama a la función MinarBloque del paquete minero
-		cadena.AgregarBloque(bloque)
+func minarBloque(cadena *minero.CadenaBloques, bloque *minero.Bloque, dificultad int) {
+	for {
+		fmt.Printf("Minando bloque %d...\n", bloque.Index)
+		minero.MinarBloque(bloque, dificultad) // Llama a la función MinarBloque del paquete minero
+		cadena.AgregarBloque(*bloque)
 
-		datos := obtenerDatos()
-		defer liberarDatos(&datos)
+		if verificarHash(bloque.Hash, dificultad) {
+			break
+		}
+		bloque.Nonce++
 	}
+}
+
+func verificarHash(hash string, dificultad int) bool {
+	for i := 0; i < dificultad; i++ {
+		if hash[i] != '0' {
+			return false
+		}
+	}
+	return true
 }
 
 func main() {
@@ -61,29 +62,17 @@ func main() {
 	dificultad := 5 // Dificultad inicial
 
 	for minería.Contador < target {
-		grupoBloques := make([]minero.Bloque, 0)
-		for i := 0; i < 20; i++ {
-			bloque := minero.Bloque{
-				Index:     i,
-				Timestamp: time.Now().Format(time.RFC3339),
-				Data:      fmt.Sprintf("Datos del bloque %d", i),
-				PrevHash:  cadena.ObtenerUltimoBloque().Hash,
-			}
-			grupoBloques = append(grupoBloques, bloque)
+		bloque := minero.Bloque{
+			Index:     len(cadena.Bloques),
+			Timestamp: time.Now().Format(time.RFC3339),
+			Data:      fmt.Sprintf("Datos del bloque %d", len(cadena.Bloques)),
+			PrevHash:  cadena.ObtenerUltimoBloque().Hash,
 		}
 
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go minarGrupo(&cadena, grupoBloques, &wg, dificultad)
+		minarBloque(&cadena, &bloque, dificultad)
 
-		// Espera a que se complete el minado del grupo
-		wg.Wait()
-
-		// Muestra un mensaje indicando que se ha minado el grupo
-		fmt.Println("Grupo de bloques minado")
-		for _, bloque := range grupoBloques {
-			fmt.Printf("Grupo %d\n", bloque.Index)
-		}
+		// Muestra un mensaje indicando que se ha minado el bloque
+		fmt.Printf("Bloque %d minado\n", bloque.Index)
 		fmt.Println("--------------------")
 
 		// Aumenta el contador de éxito

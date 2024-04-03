@@ -1,7 +1,7 @@
 package minero
 
 import (
-	"crypto/sha256"
+	"blockchain-miner/sha256"
 	"encoding/hex"
 	"fmt"
 )
@@ -37,12 +37,11 @@ func verificarHash(hash string, dificultad int) bool {
 	return true
 }
 
-// CalcularHash calcula el hash SHA256 de un bloque
+// CalcularHash calcula el hash SHA256 de un bloque utilizando el paquete sha256
 func (b *Bloque) CalcularHash() {
 	registro := fmt.Sprintf("%d%s%s%d", b.Index, b.Timestamp, b.Data, b.Nonce)
-	hash := sha256.New()
-	hash.Write([]byte(registro))
-	b.Hash = hex.EncodeToString(hash.Sum(nil))
+	hash := sha256.Hash([]byte(registro)) // Usa la función Hash del paquete sha256
+	b.Hash = hex.EncodeToString(hash[:])
 }
 
 // AgregarBloque agrega un nuevo bloque a la cadena de bloques
